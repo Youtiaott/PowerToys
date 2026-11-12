@@ -19,6 +19,7 @@ namespace KeyboardManagerEditorUI.Interop
         public bool IsShortcut { get; set; }
 
         public SingleKeyAppScope AppScope { get; set; } = SingleKeyAppScope.All;
+
         public string AppList { get; set; } = string.Empty;
 
         // True when this is an "Alone" (dual-key / tap-alone) remap rather than a regular unconditional one.

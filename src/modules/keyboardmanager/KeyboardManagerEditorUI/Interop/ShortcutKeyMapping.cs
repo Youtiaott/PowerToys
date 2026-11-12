@@ -35,6 +35,7 @@ namespace KeyboardManagerEditorUI.Interop
 
         // Single-key remaps only. Empty app list is equivalent to no matches.
         public SingleKeyAppScope AppScope { get; set; } = SingleKeyAppScope.All;
+
         public string AppList { get; set; } = string.Empty;
 
         public ShortcutOperationType OperationType { get; set; }

@@ -916,10 +916,12 @@ namespace KeyboardManagerEditorUI.Controls
             {
                 SingleKeyScopeComboBox.SelectedIndex = (int)scope;
             }
+
             if (SingleKeyScopeAppsTextBox != null)
             {
                 SingleKeyScopeAppsTextBox.Text = apps ?? string.Empty;
             }
+
             RefreshSingleKeyScopeAppsVisibility();
         }
 
@@ -1388,6 +1390,7 @@ namespace KeyboardManagerEditorUI.Controls
             {
                 SingleKeyScopeComboBox.SelectedIndex = 0;
             }
+
             if (SingleKeyScopeAppsTextBox != null)
             {
                 SingleKeyScopeAppsTextBox.Text = string.Empty;

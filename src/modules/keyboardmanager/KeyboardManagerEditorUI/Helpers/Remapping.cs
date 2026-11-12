@@ -23,6 +23,7 @@ namespace KeyboardManagerEditorUI.Helpers
         public string AppName { get; set; } = string.Empty;
 
         public Interop.SingleKeyAppScope AppScope { get; set; } = Interop.SingleKeyAppScope.All;
+
         public string AppList { get; set; } = string.Empty;
 
         private bool IsEnabledValue { get; set; } = true;

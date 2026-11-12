@@ -792,6 +792,7 @@ namespace KeyboardManagerEditorUI.Pages
                     {
                         return false;
                     }
+
                     added = isAlone
                         ? mappingService.AddSingleKeyAloneMapping(originalKey, targetKey)
                         : mappingService.AddSingleKeyMapping(originalKey, targetKey);

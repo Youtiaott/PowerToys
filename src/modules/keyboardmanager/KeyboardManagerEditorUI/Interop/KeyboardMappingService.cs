@@ -45,8 +45,11 @@ namespace KeyboardManagerEditorUI.Interop
                 ? parsed : SingleKeyAppScope.All;
 
         public bool SetSingleKeyAppScope(int sourceKey, SingleKeyAppScope scope, string apps) =>
-            KeyboardManagerInterop.SetSingleKeyAppScope(_configHandle,
-                sourceKey, scope.ToString().ToLowerInvariant(), apps ?? string.Empty);
+            KeyboardManagerInterop.SetSingleKeyAppScope(
+                _configHandle,
+                sourceKey,
+                scope.ToString().ToLowerInvariant(),
+                apps ?? string.Empty);
 
         public List<KeyMapping> GetSingleKeyMappings()
         {

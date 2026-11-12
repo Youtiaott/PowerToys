@@ -82,7 +82,9 @@ namespace KeyboardManagerEditorUI.Interop
 
         [DllImport(DllName, CallingConvention = Convention, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.I1)]
-        internal static extern bool SetSingleKeyAppScope(IntPtr config, int originalKey,
+        internal static extern bool SetSingleKeyAppScope(
+            IntPtr config,
+            int originalKey,
             [MarshalAs(UnmanagedType.LPWStr)] string mode,
             [MarshalAs(UnmanagedType.LPWStr)] string apps);
 
