@@ -45,3 +45,28 @@ jobs:
           if-no-files-found: error
           retention-days: 3
           compression-level: 1
+      - name: Print MSBuild errors
+        if: failure()
+        shell: pwsh
+        run: |
+          $logs = Get-ChildItem "artifacts/logs" -Recurse -Filter "*.errors.log" -ErrorAction SilentlyContinue
+          if (-not $logs) {
+            Write-Host "No MSBuild error log found."
+          }
+          foreach ($log in $logs) {
+            Write-Host "::group::$($log.FullName)"
+            Get-Content $log.FullName -Tail 150
+            Write-Host "::endgroup::"
+          }
+
+      - name: Upload MSBuild diagnostic logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PowerToys-MSBuild-Logs
+          path: |
+            artifacts/logs/**/*.errors.log
+            artifacts/logs/**/*.warnings.log
+            artifacts/logs/**/*.all.log
+          if-no-files-found: warn
+          retention-days: 7
