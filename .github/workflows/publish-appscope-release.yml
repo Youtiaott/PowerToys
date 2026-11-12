@@ -1,0 +1,82 @@
+name: Publish PowerToys Custom AppScope EXE
+
+on:
+  push:
+    branches:
+      - publish/custom-appscope-v0.0.1
+    paths:
+      - .github/workflows/publish-appscope-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: custom-appscope-v0.0.1-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: '43200812789'
+      SOURCE_SHA: 'be052d9fa13fb572731e5687d3e882d237a60b68'
+      RELEASE_TAG: 'custom-appscope-v0.0.1'
+      EXE_NAME: 'PowerToysUserSetup-0.0.1-x64.exe'
+      EXPECTED_SHA256: 'A95ED176D986126D120BB96DC148A03CC44AC0A13B89870411EF883DEDBF638A'
+    steps:
+      - name: Download previously built EXE (no recompilation)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          gh run download "$SOURCE_RUN" --repo "$GH_REPO" --name PowerToys-Custom-Installer-x64 --dir dist
+          ls -lh dist/
+          test -f "dist/$EXE_NAME"
+          test -f dist/SHA256SUMS.txt
+
+      - name: Verify installer SHA256 and provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$EXPECTED_SHA256  dist/$EXE_NAME" | sha256sum -c -
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          echo "Verified custom installer built from $SOURCE_SHA"
+
+      - name: Publish unofficial prerelease with checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists; refusing to overwrite it."
+            exit 1
+          fi
+          cat > release-notes.md <<'EOF'
+          ## Unofficial PowerToys AppScope Build (x64)
+
+          This is an **unofficial, community-built PowerToys fork**, not a Microsoft release.
+          It adds per-application inclusion/exclusion options for Keyboard Manager single-key remapping.
+
+          - Built from source commit: `be052d9fa13fb572731e5687d3e882d237a60b68`
+          - Original successful GitHub Actions run: `43200812789`
+          - EXE SHA-256: `A95ED176D986126D120BB96DC148A03CC44AC0A13B89870411EF883DEDBF638A`
+          - Architecture: Windows x64; per-user installation; package version `0.0.1`.
+
+          **Important:** The EXE is **unsigned** (Authenticode: NotSigned).
+          It has passed compilation and WiX packaging, but installation and runtime behavior have not yet been verified.
+          Back up your PowerToys settings before testing. The `0.0.1` version and existing product identifiers can conflict with official installations; do not assume in-place upgrading works.
+          MSIX-based extensions may not function because their signing was skipped.
+
+          `SHA256SUMS.txt` is included for download integrity verification.
+          EOF
+          gh release create "$RELEASE_TAG" "dist/$EXE_NAME" dist/SHA256SUMS.txt \
+            --repo "$GH_REPO" \
+            --target "$SOURCE_SHA" \
+            --title "PowerToys Custom AppScope v0.0.1 (Unofficial)" \
+            --notes-file release-notes.md \
+            --prerelease
+          gh release view "$RELEASE_TAG" --repo "$GH_REPO" --json url,assets --jq '{url: .url, assets: [.assets[].name]}'
