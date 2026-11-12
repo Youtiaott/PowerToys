@@ -46,6 +46,7 @@ param (
     [switch]$Clean,
     [switch]$SkipBuild,
     [switch]$SkipTerminalVersioning,
+    [switch]$SkipMsixSigning,
     [switch]$Help
 )
 
@@ -60,6 +61,7 @@ if ($Help) {
     Write-Host "  -Clean          Clean output directories before building"
     Write-Host "  -SkipBuild      Skip building the main solution and tools (assumes they are already built)"
     Write-Host "  -SkipTerminalVersioning  Skip private Azure Artifacts terminal versioning setup for community builds"
+    Write-Host "  -SkipMsixSigning Skip certificate creation and MSIX signing for unofficial CI builds"
     Write-Host "  -Help           Show this help message"
     exit 0
 }
@@ -274,8 +276,14 @@ try {
     Select-Object -ExpandProperty FullName
 
     if ($msixFiles.Count) {
-        Write-Host ("[SIGN] .msix file(s): {0}" -f ($msixFiles -join '; '))
-        & (Join-Path $PSScriptRoot "cert-sign-package.ps1") -TargetPaths $msixFiles
+        if ($SkipMsixSigning) {
+            Write-Warning "[SIGN] Unofficial build: skipping MSIX signing and certificate trust changes."
+            Write-Warning "[SIGN] MSIX-based extensions may not register or work without a trusted signature."
+            Write-Host ("[SIGN] Skipped signing {0} MSIX files" -f @($msixFiles).Count)
+        } else {
+            Write-Host ("[SIGN] .msix file(s): {0}" -f ($msixFiles -join '; '))
+            & (Join-Path $PSScriptRoot "cert-sign-package.ps1") -TargetPaths $msixFiles
+        }
     }
     else {
         Write-Warning "[SIGN] No .msix files found in $msixSearchRoot"

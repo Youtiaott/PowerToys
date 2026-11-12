@@ -12,7 +12,7 @@ permissions:
 jobs:
   package:
     runs-on: windows-2025-vs2026
-    timeout-minutes: 360
+    timeout-minutes: 180
 
     steps:
       - name: Checkout source
@@ -30,10 +30,11 @@ jobs:
           & $vswhere -latest -property installationVersion
 
       - name: Build x64 Release and WiX EXE installer
+        timeout-minutes: 150
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\tools\build\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force -SkipTerminalVersioning
+          .\tools\build\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force -SkipTerminalVersioning -SkipMsixSigning
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare installer and SHA256 checksum
