@@ -1,5 +1,4 @@
-
-name: Build Custom PowerToys
+name: Build Custom PowerToys Installer
 
 on:
   push:
@@ -11,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  package:
     runs-on: windows-2025-vs2026
     timeout-minutes: 360
 
@@ -23,50 +22,73 @@ jobs:
           fetch-depth: 0
           lfs: true
 
-      - name: Check environment
+      - name: Check build environment
         shell: pwsh
         run: |
           dotnet --version
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vswhere = "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe"
           & $vswhere -latest -property installationVersion
 
-      - name: Build PowerToys x64 Release
+      - name: Build x64 Release and WiX EXE installer
         shell: pwsh
         run: |
-          .\tools\build\build.ps1 -Platform x64 -Configuration Release
+          $ErrorActionPreference = 'Stop'
+          .\\tools\\build\\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Upload build artifacts
-        if: success()
+      - name: Prepare installer and SHA256 checksum
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installerDir = 'installer/PowerToysSetupVNext/x64/Release/UserSetup'
+          $installers = @(Get-ChildItem -LiteralPath $installerDir -Filter 'PowerToysUserSetup-*.exe' -File -ErrorAction SilentlyContinue)
+          if ($installers.Count -ne 1) {
+            Write-Host 'Installer output files:'
+            Get-ChildItem 'installer/PowerToysSetupVNext/x64/Release' -Recurse -File -ErrorAction SilentlyContinue |
+              Select-Object -ExpandProperty FullName
+            throw "Expected one PowerToysUserSetup EXE in $installerDir, found $($installers.Count)"
+          }
+          $outDir = 'artifacts/distribution'
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+          $source = $installers[0]
+          $dest = Join-Path $outDir $source.Name
+          Copy-Item -LiteralPath $source.FullName -Destination $dest -Force
+          $checksum = Get-FileHash -LiteralPath $dest -Algorithm SHA256
+          "$($checksum.Hash) *$($source.Name)" | Set-Content -Path (Join-Path $outDir 'SHA256SUMS.txt') -Encoding ascii
+          $signature = Get-AuthenticodeSignature -LiteralPath $dest
+          Write-Host "Installer: $($source.Name)"
+          Write-Host "Size in bytes: $((Get-Item -LiteralPath $dest).Length)"
+          Write-Host "SHA256: $($checksum.Hash)"
+          Write-Host "Authenticode status: $($signature.Status)"
+          Write-Host 'This is a custom, unofficial PowerToys build.'
+
+      - name: Upload only the installer
         uses: actions/upload-artifact@v4
         with:
-          name: PowerToys-Custom-x64
-          path: x64/Release/
+          name: PowerToys-Custom-Installer-x64
+          path: artifacts/distribution/*
           if-no-files-found: error
-          retention-days: 3
-          compression-level: 1
-      - name: Print MSBuild errors
+          retention-days: 7
+          compression-level: 0
+
+      - name: Print MSBuild errors if packaging fails
         if: failure()
         shell: pwsh
         run: |
-          $logs = Get-ChildItem "artifacts/logs" -Recurse -Filter "*.errors.log" -ErrorAction SilentlyContinue
-          if (-not $logs) {
-            Write-Host "No MSBuild error log found."
-          }
+          $logs = @(Get-ChildItem 'artifacts/logs' -Recurse -Filter '*.errors.log' -File -ErrorAction SilentlyContinue)
+          if ($logs.Count -eq 0) { Write-Host 'No MSBuild errors.log files found; see build step output.' }
           foreach ($log in $logs) {
             Write-Host "::group::$($log.FullName)"
-            Get-Content $log.FullName -Tail 150
-            Write-Host "::endgroup::"
+            Get-Content -LiteralPath $log.FullName -Tail 150
+            Write-Host '::endgroup::'
           }
 
-      - name: Upload MSBuild diagnostic logs
+      - name: Upload diagnostic errors only
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: PowerToys-MSBuild-Logs
-          path: |
-            artifacts/logs/**/*.errors.log
-            artifacts/logs/**/*.warnings.log
-            artifacts/logs/**/*.all.log
+          name: PowerToys-Installer-Build-Errors
+          path: artifacts/logs/**/*.errors.log
           if-no-files-found: warn
           retention-days: 7
+          compression-level: 6
