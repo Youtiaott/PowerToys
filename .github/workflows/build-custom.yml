@@ -33,7 +33,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\tools\build\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force
+          .\tools\build\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force -SkipTerminalVersioning
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare installer and SHA256 checksum

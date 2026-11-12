@@ -45,6 +45,7 @@ param (
     [switch]$EnableCmdPalAOT,
     [switch]$Clean,
     [switch]$SkipBuild,
+    [switch]$SkipTerminalVersioning,
     [switch]$Help
 )
 
@@ -58,6 +59,7 @@ if ($Help) {
     Write-Host "  -EnableCmdPalAOT Enable AOT compilation for CmdPal (slower build)"
     Write-Host "  -Clean          Clean output directories before building"
     Write-Host "  -SkipBuild      Skip building the main solution and tools (assumes they are already built)"
+    Write-Host "  -SkipTerminalVersioning  Skip private Azure Artifacts terminal versioning setup for community builds"
     Write-Host "  -Help           Show this help message"
     exit 0
 }
@@ -203,46 +205,53 @@ try {
         }
     }
 
-    Write-Host "[VERSION] Setting up versioning using Microsoft.Windows.Terminal.Versioning..."
-
-    # Check for nuget.exe - download to AppData if not available
-    $nugetDownloaded = $false
-    $nugetPath = $null
-    if (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
-        Write-Warning "nuget.exe not found in PATH. Attempting to download..."
-        $nugetUrl = "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe"
-        $nugetDir = Join-Path $env:LOCALAPPDATA "PowerToys\BuildTools"
-        if (-not (Test-Path $nugetDir)) { New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null }
-        $nugetPath = Join-Path $nugetDir "nuget.exe"
-        if (-not (Test-Path $nugetPath)) {
-            try {
-                Invoke-WebRequest $nugetUrl -OutFile $nugetPath
-                $nugetDownloaded = $true
-            } catch {
-                Write-Error "Failed to download nuget.exe. Please install it manually and add to PATH."
-                exit 1
-            }
-        }
-        $env:Path += ";$nugetDir"
-    }
-
-    # Install Terminal versioning package to AppData
-    $versioningDir = Join-Path $env:LOCALAPPDATA "PowerToys\BuildTools\.versioning"
-    if (-not (Test-Path $versioningDir)) { New-Item -ItemType Directory -Path $versioningDir -Force | Out-Null }
-
-    $configFile = Join-Path $repoRoot ".pipelines\release-nuget.config"
-
-    # Install the package
-    # Use -ExcludeVersion to make the path predictable
-    nuget install Microsoft.Windows.Terminal.Versioning -ConfigFile $configFile -OutputDirectory $versioningDir -ExcludeVersion -NonInteractive
-
-    $versionRoot = Join-Path $versioningDir "Microsoft.Windows.Terminal.Versioning"
-    $setupScript = Join-Path $versionRoot "build\Setup.ps1"
-
-    if (Test-Path $setupScript) {
-        & $setupScript -ProjectDirectory (Join-Path $repoRoot "src\modules\cmdpal") -Verbose
+    if ($SkipTerminalVersioning) {
+        # Community CI builds cannot authenticate to Microsoft's private PowerToysDependencies feed.
+        # Standard version properties already exist in src/CmdPalVersion.props; the full solution
+        # builds without this local-only Terminal versioning setup (as validated by the prior CI run).
+        Write-Host "[VERSION] Skipping private Terminal Versioning package for community build."
     } else {
-        Write-Error "Could not find Setup.ps1 in $versionRoot"
+        Write-Host "[VERSION] Setting up versioning using Microsoft.Windows.Terminal.Versioning..."
+    
+        # Check for nuget.exe - download to AppData if not available
+        $nugetDownloaded = $false
+        $nugetPath = $null
+        if (-not (Get-Command nuget -ErrorAction SilentlyContinue)) {
+            Write-Warning "nuget.exe not found in PATH. Attempting to download..."
+            $nugetUrl = "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe"
+            $nugetDir = Join-Path $env:LOCALAPPDATA "PowerToys\BuildTools"
+            if (-not (Test-Path $nugetDir)) { New-Item -ItemType Directory -Path $nugetDir -Force | Out-Null }
+            $nugetPath = Join-Path $nugetDir "nuget.exe"
+            if (-not (Test-Path $nugetPath)) {
+                try {
+                    Invoke-WebRequest $nugetUrl -OutFile $nugetPath
+                    $nugetDownloaded = $true
+                } catch {
+                    Write-Error "Failed to download nuget.exe. Please install it manually and add to PATH."
+                    exit 1
+                }
+            }
+            $env:Path += ";$nugetDir"
+        }
+    
+        # Install Terminal versioning package to AppData
+        $versioningDir = Join-Path $env:LOCALAPPDATA "PowerToys\BuildTools\.versioning"
+        if (-not (Test-Path $versioningDir)) { New-Item -ItemType Directory -Path $versioningDir -Force | Out-Null }
+    
+        $configFile = Join-Path $repoRoot ".pipelines\release-nuget.config"
+    
+        # Install the package
+        # Use -ExcludeVersion to make the path predictable
+        nuget install Microsoft.Windows.Terminal.Versioning -ConfigFile $configFile -OutputDirectory $versioningDir -ExcludeVersion -NonInteractive
+    
+        $versionRoot = Join-Path $versioningDir "Microsoft.Windows.Terminal.Versioning"
+        $setupScript = Join-Path $versionRoot "build\Setup.ps1"
+    
+        if (Test-Path $setupScript) {
+            & $setupScript -ProjectDirectory (Join-Path $repoRoot "src\modules\cmdpal") -Verbose
+        } else {
+            Write-Error "Could not find Setup.ps1 in $versionRoot"
+        }
     }
 
     # WiX v5 projects use WixToolset.Sdk via NuGet/MSBuild; no separate WiX installation is required.
