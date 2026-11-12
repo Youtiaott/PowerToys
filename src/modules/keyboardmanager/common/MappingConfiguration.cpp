@@ -170,6 +170,24 @@ bool MappingConfiguration::AddAppSpecificShortcut(const std::wstring& app, const
     return true;
 }
 
+bool MappingConfiguration::SetSingleKeyAppScope(DWORD originalKey, const std::wstring& mode, const std::wstring& apps)
+{
+    if (mode != L"all" && mode != L"include" && mode != L"exclude")
+    {
+        return false;
+    }
+
+    if (mode == L"all")
+    {
+        singleKeyAppScopes.erase(originalKey);
+    }
+    else
+    {
+        singleKeyAppScopes[originalKey] = SingleKeyAppScope{ mode, apps };
+    }
+    return true;
+}
+
 bool MappingConfiguration::LoadSingleKeyRemaps(const json::JsonObject& jsonData)
 {
     bool result = true;
@@ -179,6 +197,7 @@ bool MappingConfiguration::LoadSingleKeyRemaps(const json::JsonObject& jsonData)
         auto remapKeysData = jsonData.GetNamedObject(KeyboardManagerConstants::RemapKeysSettingName);
         ClearSingleKeyRemaps();
         ClearSingleKeyAloneRemaps();
+        singleKeyAppScopes.clear();
 
         if (remapKeysData)
         {
@@ -207,13 +226,18 @@ bool MappingConfiguration::LoadSingleKeyRemaps(const json::JsonObject& jsonData)
                         target = static_cast<DWORD>(std::stoul(newRemapKey.c_str()));
                     }
 
-                    if (isAloneCondition)
+                    const DWORD sourceKey = static_cast<DWORD>(std::stoul(originalKey.c_str()));
+                    const bool added = isAloneCondition
+                        ? AddSingleKeyAloneRemap(sourceKey, target)
+                        : AddSingleKeyRemap(sourceKey, target);
+                    if (added)
                     {
-                        AddSingleKeyAloneRemap(std::stoul(originalKey.c_str()), target);
-                    }
-                    else
-                    {
-                        AddSingleKeyRemap(std::stoul(originalKey.c_str()), target);
+                        const auto mode = it.GetObjectW().GetNamedString(L"appScope", L"all");
+                        const auto apps = it.GetObjectW().GetNamedString(L"apps", L"");
+                        if (!SetSingleKeyAppScope(sourceKey, mode.c_str(), apps.c_str()))
+                        {
+                            Logger::warn(L"Invalid appScope value; using global behavior for key {}", sourceKey);
+                        }
                     }
                 }
                 catch (...)
@@ -555,6 +579,11 @@ bool MappingConfiguration::SaveSettingsToFile()
             keys.SetNamedValue(KeyboardManagerConstants::NewRemapKeysSettingName, json::value(std::get<Shortcut>(it.second).ToHstringVK()));
         }
 
+        if (const auto scope = singleKeyAppScopes.find(it.first); scope != singleKeyAppScopes.end())
+        {
+            keys.SetNamedValue(L"appScope", json::value(scope->second.mode));
+            keys.SetNamedValue(L"apps", json::value(scope->second.apps));
+        }
         inProcessRemapKeysArray.Append(keys);
     }
 
@@ -579,6 +608,11 @@ bool MappingConfiguration::SaveSettingsToFile()
 
         keys.SetNamedValue(KeyboardManagerConstants::RemapConditionSettingName, json::value(KeyboardManagerConstants::RemapConditionAlone));
 
+        if (const auto scope = singleKeyAppScopes.find(it.first); scope != singleKeyAppScopes.end())
+        {
+            keys.SetNamedValue(L"appScope", json::value(scope->second.mode));
+            keys.SetNamedValue(L"apps", json::value(scope->second.apps));
+        }
         inProcessRemapKeysArray.Append(keys);
     }
 

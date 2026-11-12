@@ -40,6 +40,14 @@ namespace KeyboardManagerEditorUI.Interop
 
         internal string ConfigurationName { get; }
 
+        private static SingleKeyAppScope ParseAppScope(string scope) =>
+            Enum.TryParse<SingleKeyAppScope>(scope, ignoreCase: true, out var parsed)
+                ? parsed : SingleKeyAppScope.All;
+
+        public bool SetSingleKeyAppScope(int sourceKey, SingleKeyAppScope scope, string apps) =>
+            KeyboardManagerInterop.SetSingleKeyAppScope(_configHandle,
+                sourceKey, scope.ToString().ToLowerInvariant(), apps ?? string.Empty);
+
         public List<KeyMapping> GetSingleKeyMappings()
         {
             var result = new List<KeyMapping>();
@@ -55,6 +63,8 @@ namespace KeyboardManagerEditorUI.Interop
                         OriginalKey = mapping.OriginalKey,
                         TargetKey = KeyboardManagerInterop.GetStringAndFree(mapping.TargetKey),
                         IsShortcut = mapping.IsShortcut,
+                        AppScope = ParseAppScope(KeyboardManagerInterop.GetStringAndFree(mapping.AppScope)),
+                        AppList = KeyboardManagerInterop.GetStringAndFree(mapping.Apps),
                     });
                 }
             }
@@ -71,6 +81,8 @@ namespace KeyboardManagerEditorUI.Interop
                         OriginalKey = mapping.OriginalKey,
                         TargetKey = KeyboardManagerInterop.GetStringAndFree(mapping.TargetKey),
                         IsShortcut = mapping.IsShortcut,
+                        AppScope = ParseAppScope(KeyboardManagerInterop.GetStringAndFree(mapping.AppScope)),
+                        AppList = KeyboardManagerInterop.GetStringAndFree(mapping.Apps),
                         IsAlone = true,
                     });
                 }
@@ -373,7 +385,9 @@ namespace KeyboardManagerEditorUI.Interop
                    firstSingleKeys.Zip(secondSingleKeys).All(pair =>
                        pair.First.OriginalKey == pair.Second.OriginalKey &&
                        string.Equals(pair.First.TargetKey, pair.Second.TargetKey, StringComparison.Ordinal) &&
-                       pair.First.IsShortcut == pair.Second.IsShortcut) &&
+                       pair.First.IsShortcut == pair.Second.IsShortcut &&
+                       pair.First.AppScope == pair.Second.AppScope &&
+                       string.Equals(pair.First.AppList, pair.Second.AppList, StringComparison.Ordinal)) &&
                    firstTexts.Count == secondTexts.Count &&
                    firstTexts.Zip(secondTexts).All(pair =>
                        pair.First.OriginalKey == pair.Second.OriginalKey &&

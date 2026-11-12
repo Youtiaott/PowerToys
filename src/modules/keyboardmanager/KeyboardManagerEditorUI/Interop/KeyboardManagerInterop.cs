@@ -82,6 +82,12 @@ namespace KeyboardManagerEditorUI.Interop
 
         [DllImport(DllName, CallingConvention = Convention, CharSet = CharSet.Unicode)]
         [return: MarshalAs(UnmanagedType.I1)]
+        internal static extern bool SetSingleKeyAppScope(IntPtr config, int originalKey,
+            [MarshalAs(UnmanagedType.LPWStr)] string mode,
+            [MarshalAs(UnmanagedType.LPWStr)] string apps);
+
+        [DllImport(DllName, CallingConvention = Convention, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.I1)]
         internal static extern bool AddSingleKeyToTextRemap(IntPtr config, int originalKey, [MarshalAs(UnmanagedType.LPWStr)] string targetText);
 
         [DllImport(DllName, CallingConvention = Convention, CharSet = CharSet.Unicode)]
@@ -176,6 +182,8 @@ namespace KeyboardManagerEditorUI.Interop
         public IntPtr TargetKey;
         [MarshalAs(UnmanagedType.I1)]
         public bool IsShortcut;
+        public IntPtr AppScope;
+        public IntPtr Apps;
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

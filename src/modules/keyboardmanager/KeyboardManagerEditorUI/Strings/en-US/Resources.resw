@@ -619,4 +619,19 @@
   <data name="NoResultsClearBtn.Content" xml:space="preserve">
     <value>Clear filters</value>
   </data>
+  <data name="SingleKeyAppScopeLabel.Text" xml:space="preserve">
+    <value>Apply this key remap in</value>
+  </data>
+  <data name="SingleKeyAppScopeAll.Content" xml:space="preserve">
+    <value>All applications</value>
+  </data>
+  <data name="SingleKeyAppScopeInclude.Content" xml:space="preserve">
+    <value>Only these applications</value>
+  </data>
+  <data name="SingleKeyAppScopeExclude.Content" xml:space="preserve">
+    <value>All except these applications</value>
+  </data>
+  <data name="SingleKeyScopeAppsTextBox.PlaceholderText" xml:space="preserve">
+    <value>Executable names, e.g. League of Legends.exe, LeagueClientUx.exe</value>
+  </data>
 </root>

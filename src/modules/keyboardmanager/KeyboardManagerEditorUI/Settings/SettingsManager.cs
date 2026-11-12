@@ -212,6 +212,8 @@ namespace KeyboardManagerEditorUI.Settings
                     OperationType = ShortcutOperationType.RemapShortcut,
                     OriginalKeys = mapping.OriginalKey.ToString(CultureInfo.InvariantCulture),
                     TargetKeys = mapping.TargetKey,
+                    AppScope = mapping.AppScope,
+                    AppList = mapping.AppList,
 
                     // GetSingleKeyMappings surfaces both the regular and the "alone" (dual-key) tables,
                     // tagging the latter with IsAlone; preserve that as the per-entry Condition so an
@@ -284,6 +286,8 @@ namespace KeyboardManagerEditorUI.Settings
                     OperationType = ShortcutOperationType.RemapShortcut,
                     OriginalKeys = mapping.OriginalKey.ToString(CultureInfo.InvariantCulture),
                     TargetKeys = mapping.TargetKey,
+                    AppScope = mapping.AppScope,
+                    AppList = mapping.AppList,
                     Condition = mapping.IsAlone ? SingleKeyRemapCondition.Alone : SingleKeyRemapCondition.Always,
                 }));
                 activeMappings.AddRange(service.GetKeyToTextMappings().Select(mapping => new ShortcutKeyMapping

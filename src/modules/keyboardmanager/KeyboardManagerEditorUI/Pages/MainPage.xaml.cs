@@ -324,6 +324,7 @@ namespace KeyboardManagerEditorUI.Pages
             UnifiedMappingControl.SetActionKeys(remapping.RemappedKeys.ToList());
             UnifiedMappingControl.SetAppSpecific(!remapping.IsAllApps, remapping.AppName);
             UnifiedMappingControl.SetCondition(remapping.Condition);
+            UnifiedMappingControl.SetSingleKeyAppScope(remapping.AppScope, remapping.AppList);
             RemappingDialog.Title = ResourceHelper.GetString("RemappingDialog_TitleEdit");
             await ShowRemappingDialog();
         }
@@ -350,6 +351,7 @@ namespace KeyboardManagerEditorUI.Pages
             UnifiedMappingControl.SetActionType(UnifiedMappingControl.ActionType.Disable);
             UnifiedMappingControl.SetAppSpecific(!disabledMapping.IsAllApps, disabledMapping.AppName);
             UnifiedMappingControl.SetCondition(disabledMapping.Condition);
+            UnifiedMappingControl.SetSingleKeyAppScope(disabledMapping.AppScope, disabledMapping.AppList);
             RemappingDialog.Title = ResourceHelper.GetString("RemappingDialog_TitleEdit");
             await ShowRemappingDialog();
         }
@@ -578,6 +580,16 @@ namespace KeyboardManagerEditorUI.Pages
                 return false;
             }
 
+            // Reject include/exclude scopes without an executable name.
+            if (triggerKeys.Count == 1 &&
+                (UnifiedMappingControl.CurrentActionType == UnifiedMappingControl.ActionType.KeyOrShortcut ||
+                 UnifiedMappingControl.CurrentActionType == UnifiedMappingControl.ActionType.Disable) &&
+                UnifiedMappingControl.GetSingleKeyAppScope() != SingleKeyAppScope.All &&
+                string.IsNullOrWhiteSpace(UnifiedMappingControl.GetSingleKeyAppList()))
+            {
+                return false;
+            }
+
             using FileStream? transactionLock = SettingsManager.TryAcquireMappingTransactionLock();
             if (transactionLock == null || !SettingsManager.TryReloadSettings())
             {
@@ -674,6 +686,12 @@ namespace KeyboardManagerEditorUI.Pages
                 OriginalKeys = originalKeys,
                 ExactMatch = exactMatch,
                 TargetApp = UnifiedMappingControl.GetIsAppSpecific() ? UnifiedMappingControl.GetAppName() : string.Empty,
+                AppScope = originalKeys.Contains(';') ||
+                    (UnifiedMappingControl.CurrentActionType != UnifiedMappingControl.ActionType.KeyOrShortcut &&
+                     UnifiedMappingControl.CurrentActionType != UnifiedMappingControl.ActionType.Disable)
+                    ? SingleKeyAppScope.All : UnifiedMappingControl.GetSingleKeyAppScope(),
+                AppList = originalKeys.Contains(';') || UnifiedMappingControl.GetSingleKeyAppScope() == SingleKeyAppScope.All
+                    ? string.Empty : UnifiedMappingControl.GetSingleKeyAppList(),
             };
 
             switch (UnifiedMappingControl.CurrentActionType)
@@ -761,21 +779,25 @@ namespace KeyboardManagerEditorUI.Pages
                 // Route "alone" (dual-key tap) single-key remaps to the separate alone table so the
                 // key still passes through as a modifier when held in combination.
                 bool isAlone = mapping.Condition == SingleKeyRemapCondition.Alone;
+                bool added;
                 if (mapping.TargetKeys.Contains(';'))
                 {
-                    return isAlone
+                    added = isAlone
                         ? mappingService.AddSingleKeyAloneMapping(originalKey, mapping.TargetKeys)
                         : mappingService.AddSingleKeyMapping(originalKey, mapping.TargetKeys);
                 }
-
-                if (!int.TryParse(mapping.TargetKeys, out int targetKey))
+                else
                 {
-                    return false;
+                    if (!int.TryParse(mapping.TargetKeys, out int targetKey))
+                    {
+                        return false;
+                    }
+                    added = isAlone
+                        ? mappingService.AddSingleKeyAloneMapping(originalKey, targetKey)
+                        : mappingService.AddSingleKeyMapping(originalKey, targetKey);
                 }
 
-                return isAlone
-                    ? mappingService.AddSingleKeyAloneMapping(originalKey, targetKey)
-                    : mappingService.AddSingleKeyMapping(originalKey, targetKey);
+                return added && mappingService.SetSingleKeyAppScope(originalKey, mapping.AppScope, mapping.AppList);
             }
 
             return mappingService.AddShortcutMapping(mapping);
@@ -1153,6 +1175,8 @@ namespace KeyboardManagerEditorUI.Pages
 
                     // Round-trip the dual-key condition so the list badge and edit dialog reflect Alone.
                     Condition = mapping.Condition,
+                    AppScope = mapping.AppScope,
+                    AppList = mapping.AppList,
                     TriggerKeyCodes = ParseVkCodes(mapping.OriginalKeys),
                     SearchableText = BuildSearchableText(originalKeyNames.Concat(isDisabled ? Enumerable.Empty<string>() : remappedKeyNames).Append(mapping.TargetApp ?? string.Empty)),
                 };

@@ -905,6 +905,38 @@ namespace KeyboardManagerEditorUI.Controls
         /// <summary>
         /// Gets the single-key remap condition (Always/Alone). Only meaningful for single-key remaps.
         /// </summary>
+        public KeyboardManagerEditorUI.Interop.SingleKeyAppScope GetSingleKeyAppScope() =>
+            (KeyboardManagerEditorUI.Interop.SingleKeyAppScope)(SingleKeyScopeComboBox?.SelectedIndex ?? 0);
+
+        public string GetSingleKeyAppList() => SingleKeyScopeAppsTextBox?.Text?.Trim() ?? string.Empty;
+
+        public void SetSingleKeyAppScope(KeyboardManagerEditorUI.Interop.SingleKeyAppScope scope, string apps)
+        {
+            if (SingleKeyScopeComboBox != null)
+            {
+                SingleKeyScopeComboBox.SelectedIndex = (int)scope;
+            }
+            if (SingleKeyScopeAppsTextBox != null)
+            {
+                SingleKeyScopeAppsTextBox.Text = apps ?? string.Empty;
+            }
+            RefreshSingleKeyScopeAppsVisibility();
+        }
+
+        private void SingleKeyScopeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            RefreshSingleKeyScopeAppsVisibility();
+        }
+
+        private void RefreshSingleKeyScopeAppsVisibility()
+        {
+            if (SingleKeyScopeAppsTextBox != null)
+            {
+                SingleKeyScopeAppsTextBox.Visibility = SingleKeyScopeComboBox?.SelectedIndex > 0
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
         public KeyboardManagerEditorUI.Interop.SingleKeyRemapCondition GetCondition() =>
             (KeyboardManagerEditorUI.Interop.SingleKeyRemapCondition)(ConditionComboBox?.SelectedIndex ?? 0);
 
@@ -1225,6 +1257,10 @@ namespace KeyboardManagerEditorUI.Controls
             ConditionComboBox.Visibility = isSingleKeyRemap
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+            if (SingleKeyAppScopePanel != null)
+            {
+                SingleKeyAppScopePanel.Visibility = isSingleKeyRemap ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         private void RaiseValidationStateChanged()
@@ -1346,6 +1382,16 @@ namespace KeyboardManagerEditorUI.Controls
             {
                 AppSpecificCheckBox.IsChecked = false;
                 AppSpecificCheckBox.IsEnabled = false;
+            }
+
+            if (SingleKeyScopeComboBox != null)
+            {
+                SingleKeyScopeComboBox.SelectedIndex = 0;
+            }
+            if (SingleKeyScopeAppsTextBox != null)
+            {
+                SingleKeyScopeAppsTextBox.Text = string.Empty;
+                SingleKeyScopeAppsTextBox.Visibility = Visibility.Collapsed;
             }
 
             // Reset app combo boxes

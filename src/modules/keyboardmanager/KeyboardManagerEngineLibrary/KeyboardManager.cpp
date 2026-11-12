@@ -11,6 +11,8 @@
 #include <keyboardmanager/common/Helpers.h>
 #include <keyboardmanager/common/KeyboardEventHandlers.h>
 #include <ctime>
+#include <algorithm>
+#include <cwctype>
 
 #include "KeyboardEventHandlers.h"
 #include "trace.h"
@@ -24,6 +26,86 @@ KeyboardManager* KeyboardManager::keyboardManagerObjectPtr;
 namespace
 {
     DWORD mainThreadId = {};
+
+    std::wstring GetActiveExecutableName()
+    {
+        const HWND window = GetForegroundWindow();
+        if (!window)
+        {
+            return {};
+        }
+
+        DWORD pid = 0;
+        GetWindowThreadProcessId(window, &pid);
+        if (!pid)
+        {
+            return {};
+        }
+
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+        if (!process)
+        {
+            return {};
+        }
+
+        std::wstring result;
+        wchar_t path[32768] = {};
+        DWORD length = ARRAYSIZE(path);
+        if (QueryFullProcessImageNameW(process, 0, path, &length))
+        {
+            result.assign(path, length);
+            const size_t separator = result.find_last_of(L"\\/");
+            if (separator != std::wstring::npos)
+            {
+                result.erase(0, separator + 1);
+            }
+            std::transform(result.begin(), result.end(), result.begin(), [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+        }
+        CloseHandle(process);
+        return result;
+    }
+
+    std::wstring NormalizeExeName(std::wstring value)
+    {
+        const auto first = value.find_first_not_of(L" \t\r\n");
+        if (first == std::wstring::npos)
+        {
+            return {};
+        }
+        const auto last = value.find_last_not_of(L" \t\r\n");
+        value = value.substr(first, last - first + 1);
+        const auto separator = value.find_last_of(L"\\/");
+        if (separator != std::wstring::npos)
+        {
+            value.erase(0, separator + 1);
+        }
+        std::transform(value.begin(), value.end(), value.begin(), [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+        return value;
+    }
+
+    bool AppMatchesList(const std::wstring& exe, const std::wstring& appList)
+    {
+        if (exe.empty())
+        {
+            return false;
+        }
+        size_t start = 0;
+        while (start < appList.length())
+        {
+            const size_t delimiter = appList.find_first_of(L",;", start);
+            const std::wstring entry = appList.substr(start, delimiter == std::wstring::npos ? std::wstring::npos : delimiter - start);
+            if (NormalizeExeName(entry) == exe)
+            {
+                return true;
+            }
+            if (delimiter == std::wstring::npos)
+            {
+                break;
+            }
+            start = delimiter + 1;
+        }
+        return false;
+    }
 }
 
 KeyboardManager::KeyboardManager()
@@ -298,6 +380,50 @@ bool KeyboardManager::HasRegisteredRemappingsUnchecked() const
     return !(state.appSpecificShortcutReMap.empty() && state.appSpecificShortcutReMapSortedKeys.empty() && state.osLevelShortcutReMap.empty() && state.osLevelShortcutReMapSortedKeys.empty() && state.singleKeyReMap.empty() && state.aloneSingleKeyReMap.empty() && state.singleKeyToTextReMap.empty());
 }
 
+bool KeyboardManager::ShouldApplySingleKeyScope(DWORD key, WPARAM message, bool injected)
+{
+    // Ignore KBM-generated events; their handlers already avoid remapping injected input.
+    if (injected)
+    {
+        return true;
+    }
+
+    const bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
+    const bool up = message == WM_KEYUP || message == WM_SYSKEYUP;
+    if (!down && !up)
+    {
+        return true;
+    }
+
+    const auto held = singleKeyScopeDecisionWhenHeld.find(key);
+    if (up && held != singleKeyScopeDecisionWhenHeld.end())
+    {
+        const bool decision = held->second;
+        singleKeyScopeDecisionWhenHeld.erase(held);
+        return decision;
+    }
+    if (down && held != singleKeyScopeDecisionWhenHeld.end())
+    {
+        return held->second;
+    }
+
+    const auto rule = state.singleKeyAppScopes.find(key);
+    if (rule == state.singleKeyAppScopes.end())
+    {
+        return true;
+    }
+
+    const auto exe = GetActiveExecutableName();
+    const bool matches = AppMatchesList(exe, rule->second.apps);
+    // Fail closed if Windows will not disclose the foreground process (e.g. a protected game).
+    const bool apply = !exe.empty() && ((rule->second.mode == L"include") ? matches : !matches);
+    if (down)
+    {
+        singleKeyScopeDecisionWhenHeld[key] = apply;
+    }
+    return apply;
+}
+
 intptr_t KeyboardManager::HandleKeyboardHookEvent(LowlevelKeyboardEvent* data) noexcept
 {
     if (loadingSettings)
@@ -317,16 +443,25 @@ intptr_t KeyboardManager::HandleKeyboardHookEvent(LowlevelKeyboardEvent* data) n
         return 1;
     }
 
+    // Determine whether this physical key press is in scope; preserve the decision until key-up.
+    // Only single-key remaps are scoped. App-specific/global shortcut processing continues normally.
+    const bool allowSingleKeyRemap = ShouldApplySingleKeyScope(
+        data->lParam->vkCode,
+        data->wParam,
+        (data->lParam->dwExtraInfo & CommonSharedConstants::KEYBOARDMANAGER_INJECTED_FLAG) != 0);
+
     // Remap a key tapped alone (dual-key). Runs before the regular single-key remap so it can hold
     // the key-down (lazy) and decide tap-vs-combination; if it handles the event, suppress the original.
-    intptr_t SingleKeyAloneRemapResult = KeyboardEventHandlers::HandleSingleKeyAloneRemapEvent(inputHandler, data, state);
+    intptr_t SingleKeyAloneRemapResult = allowSingleKeyRemap
+        ? KeyboardEventHandlers::HandleSingleKeyAloneRemapEvent(inputHandler, data, state) : 0;
     if (SingleKeyAloneRemapResult == 1)
     {
         return 1;
     }
 
     // Remap a key
-    intptr_t SingleKeyRemapResult = KeyboardEventHandlers::HandleSingleKeyRemapEvent(inputHandler, data, state);
+    intptr_t SingleKeyRemapResult = allowSingleKeyRemap
+        ? KeyboardEventHandlers::HandleSingleKeyRemapEvent(inputHandler, data, state) : 0;
 
     // Single key remaps have priority. If a key is remapped, only the remapped version should be visible to the shortcuts and hence the event should be suppressed here.
     if (SingleKeyRemapResult == 1)

@@ -3,6 +3,7 @@
 #include <common/utils/EventWaiter.h>
 #include <keyboardmanager/common/Input.h>
 #include "State.h"
+#include <unordered_map>
 
 class KeyboardManager
 {
@@ -56,6 +57,10 @@ private:
 
     // Variable which stores all the state information to be shared between the UI and back-end
     State state;
+
+    // Track scope decisions for physically held keys so focus changes cannot split keydown/keyup.
+    std::unordered_map<DWORD, bool> singleKeyScopeDecisionWhenHeld;
+    bool ShouldApplySingleKeyScope(DWORD key, WPARAM message, bool injected);
 
     // Object of class which implements InputInterface. Required for calling library functions while enabling testing
     KeyboardManagerInput::Input inputHandler;

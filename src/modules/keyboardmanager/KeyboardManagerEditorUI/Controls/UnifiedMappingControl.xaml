@@ -145,6 +145,21 @@
                 BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                 GotFocus="AppNameTextBox_GotFocus"
                 Visibility="Collapsed" />
+            <!--  Single-key application scope (different from existing shortcut-only per-app mapping).  -->
+            <StackPanel x:Name="SingleKeyAppScopePanel" Spacing="6" Visibility="Collapsed">
+                <TextBlock x:Uid="SingleKeyAppScopeLabel" />
+                <ComboBox x:Name="SingleKeyScopeComboBox"
+                          HorizontalAlignment="Stretch"
+                          SelectedIndex="0"
+                          SelectionChanged="SingleKeyScopeComboBox_SelectionChanged">
+                    <ComboBoxItem x:Uid="SingleKeyAppScopeAll" />
+                    <ComboBoxItem x:Uid="SingleKeyAppScopeInclude" />
+                    <ComboBoxItem x:Uid="SingleKeyAppScopeExclude" />
+                </ComboBox>
+                <TextBox x:Name="SingleKeyScopeAppsTextBox"
+                         x:Uid="SingleKeyScopeAppsTextBox"
+                         Visibility="Collapsed" />
+            </StackPanel>
             <!--
                 Single-key remap condition (dual-key / tap-alone). Only meaningful for a single-key
                 remap whose action is a key/shortcut; visibility is gated in code-behind

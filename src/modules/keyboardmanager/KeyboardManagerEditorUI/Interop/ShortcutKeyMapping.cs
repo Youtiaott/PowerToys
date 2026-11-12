@@ -18,6 +18,13 @@ namespace KeyboardManagerEditorUI.Interop
         Alone = 1,
     }
 
+    public enum SingleKeyAppScope
+    {
+        All = 0,
+        Include = 1,
+        Exclude = 2,
+    }
+
     public class ShortcutKeyMapping
     {
         public string OriginalKeys { get; set; } = string.Empty;
@@ -25,6 +32,10 @@ namespace KeyboardManagerEditorUI.Interop
         public string TargetKeys { get; set; } = string.Empty;
 
         public string TargetApp { get; set; } = string.Empty;
+
+        // Single-key remaps only. Empty app list is equivalent to no matches.
+        public SingleKeyAppScope AppScope { get; set; } = SingleKeyAppScope.All;
+        public string AppList { get; set; } = string.Empty;
 
         public ShortcutOperationType OperationType { get; set; }
 
@@ -85,6 +96,8 @@ namespace KeyboardManagerEditorUI.Interop
             return OriginalKeys == other.OriginalKeys &&
                    TargetKeys == other.TargetKeys &&
                    TargetApp == other.TargetApp &&
+                   AppScope == other.AppScope &&
+                   AppList == other.AppList &&
                    OperationType == other.OperationType &&
                    ExactMatch == other.ExactMatch &&
                    TargetText == other.TargetText &&
@@ -104,6 +117,8 @@ namespace KeyboardManagerEditorUI.Interop
             hash.Add(OriginalKeys);
             hash.Add(TargetKeys);
             hash.Add(TargetApp);
+            hash.Add(AppScope);
+            hash.Add(AppList);
             hash.Add(OperationType);
             hash.Add(ExactMatch);
             hash.Add(TargetText);

@@ -61,6 +61,28 @@ extern "C"
         return AllocateAndCopyString(static_cast<MappingConfiguration*>(config)->currentConfig);
     }
 
+    void FillSingleKeyAppScope(MappingConfiguration* config, DWORD key, SingleKeyMapping* mapping)
+    {
+        const auto it = config->singleKeyAppScopes.find(key);
+        mapping->appScope = AllocateAndCopyString(it == config->singleKeyAppScopes.end() ? L"all" : it->second.mode);
+        mapping->apps = AllocateAndCopyString(it == config->singleKeyAppScopes.end() ? L"" : it->second.apps);
+    }
+
+    bool SetSingleKeyAppScope(void* config, int originalKey, const wchar_t* mode, const wchar_t* apps)
+    {
+        if (!config || !mode || !apps)
+        {
+            return false;
+        }
+        auto* mapping = static_cast<MappingConfiguration*>(config);
+        const DWORD key = static_cast<DWORD>(originalKey);
+        if (mapping->singleKeyReMap.count(key) == 0 && mapping->aloneSingleKeyReMap.count(key) == 0)
+        {
+            return false;
+        }
+        return mapping->SetSingleKeyAppScope(key, mode, apps);
+    }
+
     int GetSingleKeyRemapCount(void* config)
     {
         auto mapping = static_cast<MappingConfiguration*>(config);
@@ -85,6 +107,7 @@ extern "C"
 
         const auto& kv = allMappings[index];
         mapping->originalKey = static_cast<int>(kv.first);
+        FillSingleKeyAppScope(mappingConfig, kv.first, mapping);
 
         // Remap to single key
         if (kv.second.index() == 0)
@@ -131,6 +154,7 @@ extern "C"
 
         const auto& kv = allMappings[index];
         mapping->originalKey = static_cast<int>(kv.first);
+        FillSingleKeyAppScope(mappingConfig, kv.first, mapping);
 
         // Remap to single key
         if (kv.second.index() == 0)
@@ -766,6 +790,7 @@ bool GetShortcutRemapByType(void* config, int operationType, int index, Shortcut
         if (it != mappingConfig->singleKeyReMap.end())
         {
             mappingConfig->singleKeyReMap.erase(it);
+            mappingConfig->singleKeyAppScopes.erase(static_cast<DWORD>(originalKey));
             return true;
         }
 
@@ -780,6 +805,7 @@ bool GetShortcutRemapByType(void* config, int operationType, int index, Shortcut
         if (it != mappingConfig->aloneSingleKeyReMap.end())
         {
             mappingConfig->aloneSingleKeyReMap.erase(it);
+            mappingConfig->singleKeyAppScopes.erase(static_cast<DWORD>(originalKey));
             return true;
         }
 

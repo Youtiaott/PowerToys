@@ -15,6 +15,8 @@ struct SingleKeyMapping
     int originalKey;
     wchar_t* targetKey;
     bool isShortcut;
+    wchar_t* appScope;
+    wchar_t* apps;
 };
 
 struct KeyboardTextMapping
@@ -66,6 +68,7 @@ extern "C"
     __declspec(dllexport) int GetShortcutRemapCount(void* config);
     __declspec(dllexport) bool GetShortcutRemap(void* config, int index, ShortcutMapping* mapping);
 
+    __declspec(dllexport) bool SetSingleKeyAppScope(void* config, int originalKey, const wchar_t* mode, const wchar_t* apps);
     __declspec(dllexport) bool AddSingleKeyRemap(void* config, int originalKey, int targetKey);
     __declspec(dllexport) bool AddSingleKeyToTextRemap(void* config, int originalKey, const wchar_t* text);
     __declspec(dllexport) bool AddSingleKeyToShortcutRemap(void* config,

@@ -6,6 +6,13 @@
 #include <keyboardmanager/common/Shortcut.h>
 #include <keyboardmanager/common/RemapShortcut.h>
 
+struct SingleKeyAppScope
+{
+    // "all" (legacy default), "include", "exclude". Names are exe basenames separated by commas/semicolons.
+    std::wstring mode = L"all";
+    std::wstring apps;
+};
+
 using SingleKeyRemapTable = std::unordered_map<DWORD, KeyShortcutTextUnion>;
 using SingleKeyToTextRemapTable = SingleKeyRemapTable;
 using ShortcutRemapTable = std::map<Shortcut, RemapShortcut>;
@@ -64,6 +71,12 @@ public:
     // exist in singleKeyReMap in a fuller implementation; for phase 1 an entry here means
     // "tap alone -> this action, in combination pass the original key through".
     SingleKeyRemapTable aloneSingleKeyReMap;
+
+    // Per-source-key application scope. Absent means global (legacy behavior).
+    std::unordered_map<DWORD, SingleKeyAppScope> singleKeyAppScopes;
+
+    // Used by the editor bridge and config reader. Rejects unsupported mode strings.
+    bool SetSingleKeyAppScope(DWORD originalKey, const std::wstring& mode, const std::wstring& apps);
 
     std::unordered_map<DWORD, DWORD> scanMap;
 
