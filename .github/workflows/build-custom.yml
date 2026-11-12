@@ -26,14 +26,14 @@ jobs:
         shell: pwsh
         run: |
           dotnet --version
-          $vswhere = "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\\Installer\\vswhere.exe"
+          $vswhere = "${env:ProgramFiles(x86)}\\Microsoft Visual Studio\Installer\vswhere.exe"
           & $vswhere -latest -property installationVersion
 
       - name: Build x64 Release and WiX EXE installer
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          .\\tools\\build\\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force
+          .\tools\build\build-installer.ps1 -Platform x64 -Configuration Release -PerUser true -Force
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare installer and SHA256 checksum
